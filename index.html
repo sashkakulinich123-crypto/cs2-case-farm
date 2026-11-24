@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CS2 Case Farm</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: radial-gradient(circle at 50% 0%, #232b36 0%, #12161c 60%, #0b0e12 100%);
+    color: #e6e9ee;
+    min-height: 100vh;
+    padding-bottom: 60px;
+  }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 24px;
+    background: rgba(20, 25, 32, .9);
+    border-bottom: 1px solid #2a323d;
+    position: sticky; top: 0; z-index: 50;
+    backdrop-filter: blur(8px);
+  }
+  .logo { font-size: 20px; font-weight: 700; letter-spacing: .5px; }
+  .logo span { color: #f5a623; }
+  .balance {
+    display: flex; align-items: center; gap: 14px;
+    background: #1a212b; border: 1px solid #2e3946;
+    padding: 8px 16px; border-radius: 10px;
+  }
+  .balance b { color: #4ade80; font-size: 18px; }
+  .bonus-btn {
+    background: #f5a623; color: #12161c; border: 0;
+    padding: 9px 16px; border-radius: 8px; font-weight: 700;
+    cursor: pointer; font-size: 14px; transition: .15s;
+  }
+  .bonus-btn:hover { background: #ffc04d; }
+  .bonus-btn:disabled { background: #3a4452; color: #7a8797; cursor: not-allowed; }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 24px; }
+  h2 { font-size: 18px; margin-bottom: 16px; color: #9fb0c3; font-weight: 600; }
+  .cases { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 16px; }
+  .case {
+    background: linear-gradient(160deg, #1e2632, #161c25);
+    border: 1px solid #2a323d; border-radius: 14px;
+    padding: 18px; text-align: center; cursor: pointer;
+    transition: .2s; position: relative; overflow: hidden;
+  }
+  .case:hover { border-color: #f5a623; transform: translateY(-4px); box-shadow: 0 10px 30px rgba(245,166,35,.15); }
+  .case .img { font-size: 52px; margin-bottom: 10px; filter: drop-shadow(0 0 12px rgba(245,166,35,.4)); }
+  .case h3 { font-size: 14px; margin-bottom: 8px; }
+  .case .price { color: #f5a623; font-weight: 700; font-size: 15px; }
+  .case:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+  /* --- Рулетка --- */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(8,11,15,.88);
+    display: none; align-items: center; justify-content: center;
+    z-index: 100; backdrop-filter: blur(4px);
+  }
+  .overlay.show { display: flex; }
+  .reel-box {
+    width: min(760px, 94vw);
+    background: #161c25; border: 1px solid #2a323d; border-radius: 16px;
+    padding: 24px; text-align: center;
+  }
+  .reel-box h3 { font-size: 16px; margin-bottom: 18px; color: #9fb0c3; }
+  .reel {
+    position: relative; height: 130px; overflow: hidden;
+    border: 1px solid #2a323d; border-radius: 10px; background: #0f1319;
+    mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  }
+  .strip { display: flex; height: 100%; will-change: transform; }
+  .sitem {
+    flex: 0 0 130px; height: 100%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 6px; border-right: 1px solid #1d242e;
+    font-size: 11px; color: #b9c4d1; padding: 0 6px; text-align: center;
+  }
+  .sitem .ic { font-size: 30px; }
+  .pointer {
+    position: absolute; left: 50%; top: 0; bottom: 0; width: 2px;
+    background: #f5a623; transform: translateX(-1px);
+    box-shadow: 0 0 14px #f5a623; z-index: 5;
+  }
+  .result { margin-top: 18px; min-height: 26px; font-size: 15px; }
+  .result b { color: #f5a623; }
+  .close-btn {
+    margin-top: 16px; background: #2a323d; color: #e6e9ee; border: 0;
+    padding: 10px 22px; border-radius: 8px; cursor: pointer; font-size: 14px;
+  }
+  .close-btn:disabled { opacity: .4; cursor: wait; }
+
+  /* --- Инвентарь --- */
+  #inventory { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px,1fr)); gap: 12px; }
+  .inv {
+    background: #161c25; border: 1px solid #2a323d; border-left: 3px solid #555;
+    border-radius: 10px; padding: 12px; font-size: 12px;
+  }
+  .inv .ic { font-size: 26px; display: block; margin-bottom: 6px; }
+  .inv .p { color: #f5a623; font-weight: 600; margin-top: 4px; }
+  .empty { color: #6b7a8c; font-size: 13px; }
+  .section { margin-top: 40px; }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: #2a323d; color: #fff; padding: 12px 22px; border-radius: 10px;
+    font-size: 14px; opacity: 0; transition: .3s; z-index: 200; pointer-events: none;
+    border: 1px solid #3a4452;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  footer {
+    text-align: center; color: #5a6675; font-size: 12px;
+    padding: 30px 20px; line-height: 1.6;
+  }
+  @media (max-width: 600px) {
+    .logo { font-size: 16px; }
+    .balance { gap: 8px; padding: 6px 10px; }
+    .balance b { font-size: 15px; }
+    .bonus-btn { padding: 7px 10px; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">CS2 <span>CASE FARM</span></div>
+  <div class="balance">
+    <span>Баланс: <b id="balance">0</b> ₽</span>
+    <button class="bonus-btn" id="bonusBtn">+100 ₽</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <h2>Кейсы</h2>
+  <div class="cases" id="cases"></div>
+
+  <div class="section">
+    <h2>Инвентарь</h2>
+    <div id="inventory"></div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="reel-box">
+    <h3 id="reelTitle">Открытие кейса</h3>
+    <div class="reel">
+      <div class="strip" id="strip"></div>
+      <div class="pointer"></div>
+    </div>
+    <div class="result" id="result"></div>
+    <button class="close-btn" id="closeBtn" disabled>Закрыть</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<footer>
+  Демонстрационный проект. Баланс выдаётся бесплатно, вывод средств невозможен.<br>
+  Не является азартной игрой. 18+
+</footer>
+
+<script>
+/* ---------- Данные ---------- */
+const RARITY = {
+  common:    { color: '#8a95a3', label: 'Обычный' },
+  uncommon:  { color: '#5b8dd6', label: 'Необычный' },
+  rare:      { color: '#4a6fe0', label: 'Редкий' },
+  mythic:    { color: '#8a5bd6', label: 'Мифический' },
+  legendary: { color: '#d64a8a', label: 'Легендарный' },
+  ancient:   { color: '#f5a623', label: 'Древний' }
+};
+
+const ICONS = ['🔫','🗡️','🔪','💣','🧤','🎯','🛡️','⚙️','🏹','💎'];
+
+const CASES = [
+  {
+    id: 'dust2', name: 'Dust 2 Case', price: 100, icon: '🔥',
+    items: [
+      { name: 'P250 | Sand Dune',  price: 15,  rarity: 'common' },
+      { name: 'MP9 | Storm',       price: 30,  rarity: 'common' },
+      { name: 'FAMAS | Doomkitty', price: 55,  rarity: 'uncommon' },
+      { name: 'AK-47 | Uncharted', price: 120, rarity: 'rare' },
+      { name: 'AWP | Pit Viper',   price: 240, rarity: 'mythic' },
+      { name: 'M4A4 | Desert-Strike', price: 600, rarity: 'legendary' },
+      { name: 'AK-47 | Gold Arabesque', price: 1500, rarity: 'ancient' }
+    ]
+  },
+  {
+    id: 'revolution', name: 'Revolution Case', price: 150, icon: '💎',
+    items: [
+      { name: 'Five-SeveN | Hybrid', price: 20,  rarity: 'common' },
+      { name: 'MAC-10 | Sakkaku',    price: 45,  rarity: 'common' },
+      { name: 'Glock-18 | Umbral Rabbit', price: 90, rarity: 'uncommon' },
+      { name: 'USP-S | Jawbreaker',  price: 180, rarity: 'rare' },
+      { name: 'M4A1-S | Temukau',    price: 400, rarity: 'mythic' },
+      { name: 'AWP | Duality',       price: 900, rarity: 'legendary' },
+      { name: 'AK-47 | Head Shot',   price: 2500, rarity: 'ancient' }
+    ]
+  },
+  {
+    id: 'dreams', name: 'Dreams & Nightmares', price: 200, icon: '🌙',
+    items: [
+      { name: 'MP5-SD | Necro Jr.', price: 25,  rarity: 'common' },
+      { name: 'Dual Berettas | Melondrama', price: 60, rarity: 'uncommon' },
+      { name: 'MP7 | Abyssal Apparition', price: 140, rarity: 'rare' },
+      { name: 'FAMAS | Rapid Eye Movement', price: 320, rarity: 'mythic' },
+      { name: 'AK-47 | Nightwish', price: 1100, rarity: 'legendary' },
+      { name: 'MP9 | Starlight Protector', price: 2200, rarity: 'ancient' }
+    ]
+  },
+  {
+    id: 'knife', name: 'Knife Case', price: 500, icon: '🔪',
+    items: [
+      { name: 'Gut Knife | Safari Mesh', price: 200, rarity: 'uncommon' },
+      { name: 'Flip Knife | Night',      price: 500, rarity: 'rare' },
+      { name: 'Bayonet | Blue Steel',    price: 1200, rarity: 'mythic' },
+      { name: 'Karambit | Fade',         price: 4500, rarity: 'legendary' },
+      { name: '★ Karambit | Case Hardened', price: 9000, rarity: 'ancient' }
+    ]
+  }
+];
+
+/* ---------- Состояние ---------- */
+const KEY_BAL = 'cs2_balance_v1';
+const KEY_INV = 'cs2_inv_v1';
+const KEY_BONUS = 'cs2_bonus_v1';
+
+let balance = Number(localStorage.getItem(KEY_BAL) ?? 1000);
+let inventory = JSON.parse(localStorage.getItem(KEY_INV) || '[]');
+
+function saveState() {
+  localStorage.setItem(KEY_BAL, balance);
+  localStorage.setItem(KEY_INV, JSON.stringify(inventory));
+  renderBalance();
+  renderInventory();
+}
+
+/* ---------- UI ---------- */
+const $ = id => document.getElementById(id);
+let toastTimer;
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function renderBalance() { $('balance').textContent = balance.toLocaleString('ru-RU'); }
+
+function renderCases() {
+  $('cases').innerHTML = CASES.map(c => `
+    <div class="case" data-id="${c.id}">
+      <div class="img">${c.icon}</div>
+      <h3>${c.name}</h3>
+      <div class="price">${c.price} ₽</div>
+    </div>`).join('');
+
+  document.querySelectorAll('.case').forEach(el => {
+    el.onclick = () => openCase(el.dataset.id);
+  });
+}
+
+function renderInventory() {
+  const box = $('inventory');
+  if (!inventory.length) {
+    box.innerHTML = '<div class="empty">Пока пусто — откройте первый кейс.</div>';
+    return;
+  }
+  box.innerHTML = inventory.slice().reverse().map(i => {
+    const r = RARITY[i.rarity] || RARITY.common;
+    return `<div class="inv" style="border-left-color:${r.color}">
+      <span class="ic">${i.icon}</span>
+      ${i.name}
+      <div class="p">${i.price} ₽</div>
+    </div>`;
+  }).join('');
+}
+
+/* ---------- Бонус / фарм ---------- */
+function updateBonusBtn() {
+  const btn = $('bonusBtn');
+  const last = Number(localStorage.getItem(KEY_BONUS) || 0);
+  const left = 60000 - (Date.now() - last);
+  if (left <= 0) {
+    btn.disabled = false;
+    btn.textContent = '+100 ₽';
+  } else {
+    btn.disabled = true;
+    btn.textContent = `через ${Math.ceil(left / 1000)} с`;
+  }
+}
+
+$('bonusBtn').onclick = () => {
+  balance += 100;
+  localStorage.setItem(KEY_BONUS, Date.now());
+  saveState();
+  updateBonusBtn();
+  toast('+100 ₽ начислено');
+};
+setInterval(updateBonusBtn, 1000);
+
+/* ---------- Открытие кейса ---------- */
+function pickItem(c) {
+  // шансы: чем дороже предмет, тем реже
+  const weights = c.items.map(i => 1 / Math.pow(i.price + 50, 0.9));
+  const total = weights.reduce((a, b) => a + b, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < c.items.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return c.items[i];
+  }
+  return c.items[0];
+}
+
+function randomItem(c) { return c.items[Math.floor(Math.random() * c.items.length)]; }
+
+function openCase(id) {
+  const c = CASES.find(x => x.id === id);
+  if (!c) return;
+  if (balance < c.price) { toast('Недостаточно баланса'); return; }
+
+  balance -= c.price;
+  saveState();
+
+  const win = pickItem(c);
+  const winItem = { ...win, icon: ICONS[Math.floor(Math.random() * ICONS.length)] };
+
+  const COUNT = 50;
+  const WIN_INDEX = 44;
+  const STEP = 130; // ширина .sitem
+  const reelW = $('strip').parentElement.clientWidth;
+
+  const strip = [];
+  for (let i = 0; i < COUNT; i++) {
+    strip.push(i === WIN_INDEX ? winItem : randomItem(c));
+  }
+
+  const el = $('strip');
+  el.innerHTML = strip.map(it => {
+    const r = RARITY[it.rarity] || RARITY.common;
+    return `<div class="sitem" style="box-shadow: inset 0 -3px 0 ${r.color}">
+      <div class="ic">${it.icon || '📦'}</div>
+      <div>${it.name}</div>
+    </div>`;
+  }).join('');
+
+  el.style.transition = 'none';
+  el.style.transform = 'translateX(0)';
+
+  $('result').innerHTML = '';
+  $('reelTitle').textContent = c.name;
+  $('closeBtn').disabled = true;
+  $('overlay').classList.add('show');
+
+  // небольшая пауза, чтобы браузер применил стартовую позицию
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const jitter = (Math.random() - 0.5) * (STEP * 0.6);
+      const target = -(WIN_INDEX * STEP + STEP / 2 - reelW / 2) + jitter;
+      el.style.transition = 'transform 4.2s cubic-bezier(.12,.75,.25,1)';
+      el.style.transform = `translateX(${target}px)`;
+
+      setTimeout(() => {
+        const r = RARITY[win.rarity] || RARITY.common;
+        $('result').innerHTML =
+          `Вы получили: <b style="color:${r.color}">${winItem.name}</b> — ${win.price} ₽`;
+        inventory.push(winItem);
+        saveState();
+        $('closeBtn').disabled = false;
+      }, 4300);
+    });
+  });
+}
+
+$('closeBtn').onclick = () => $('overlay').classList.remove('show');
+
+/* ---------- Старт ---------- */
+renderCases();
+renderBalance();
+renderInventory();
+updateBonusBtn();
+</script>
+</body>
+</html>
